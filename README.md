@@ -1,3 +1,4 @@
+
 ## ESXi-Networking-Project
 
 Virtual networking using ESXi with routing, DNS, DHCP, E-mail servers.
@@ -56,7 +57,7 @@ Create 2 virtual switches, one for inside and the other for the DMZ.
  - Debian will attempt to configure its network through DHCP, but it will fail, ignore this and select *Continue*
 ![enter image description here](https://i.imgur.com/2IgLQdV.png)
  - Select *Configure network manually*
- - Input the correct IP Address and CIDR mask according to the table below
+ - Input the correct IP Address and CIDR mask according to the table above
  - Input the correct gateway
  - It will ask to input name servers(DNS), you can leave this field blank or input 
  - Change the hostname
@@ -123,7 +124,7 @@ Change the domain name to what you chose.
 
 Put the IP of each interface
 
-    option domain-name-servers 192.168.15.x, 192.168.31.1, 172.31.0.1;
+    option domain-name-servers x.x.x.x;
 
 Add this
 
@@ -144,14 +145,14 @@ Do this for 172.31.0.0/24
 
 If needed, you can add these lines to make a host always have the same IP.
 
-    host 172.31.0.100 {
-	  hardware ethernet 00:50:56:86:7c:cf;
-	  fixed-address 172.31.0.100;
-	  option routers 172.31.0.1;
-	  option broadcast-address 172.31.0.255;
+    host x.x.x.x {
+	  hardware ethernet xx:xx:xx:xx:xx:xx;
+	  fixed-address x.x.x.x;
+	  option routers x.x.x.x;
+	  option broadcast-address x.x.x.x;
 	}
 
-Got to /etc/default/ and open isc-dhcp-server
+Go to /etc/default/ and open isc-dhcp-server
 Add your interfaces to this list
 
     INTERFACESv4="ens192 ens224 ens256"
@@ -159,6 +160,8 @@ Add your interfaces to this list
 This tells DHCP server to listen on these interfaces
 
 Restart DHCP server.
+
+    systemctl restart isc-dhcp-server
 
 If there was no errors, you can go to the DMZ/failover and test it by editing /etc/network/interfaces. 
 Replace **static** to **dhcp** and commenting all other configurations.
@@ -168,12 +171,97 @@ Restart networking services and run the command **dhclient -r** and **dhclient -
 
 #### Bind9 (DNS)
 
+##### Installation
+    apt install bind9 bind9-dnsutils bind9-doc bind9-utils bind9utils
+    cd /etc/bind
+
+Create a db by copying one of the existing ones inside the folder
+
+##### Configuration
+
+named.conf.local
+
+    //
+	// Do any local configuration here
+	//
+	
+	// Consider adding the 1918 zones here, if they are not used in your
+	// organization
+	//include "/etc/bind/zones.rfc1918";
+
+	key DHCP_UPDATER {
+	         algorithm HMAC-MD5.SIG-ALG.REG.INT;
+	         secret pRP5FapFoJ95JEL06sv4PQ==;
+	};
+
+	zone "zone.example" {
+	        type master;
+	        file "/var/cache/bind/db.zone.example";
+	        allow-update { key DHCP_UPDATER; };
+	};
+
+	zone "31.172.in-addr.arpa" {
+	        type master;
+	        file "/var/cache/bind/db.172.31.zone.example";
+	        allow-update { key DHCP_UPDATER; };
+	};
+
+named.conf.options
+
+    options {
+        directory "/var/cache/bind";
+
+        // If there is a firewall between you and nameservers you want
+        // to talk to, you may need to fix the firewall to allow multiple
+        // ports to talk.  See http://www.kb.cert.org/vuls/id/800113
+
+        // If your ISP provided one or more IP addresses for stable
+        // nameservers, you probably want to use them as forwarders.
+        // Uncomment the following block, and insert the addresses replacing
+        // the all-0's placeholder.
+
+        forwarders {
+         8.8.8.8;
+        };
+
+        //========================================================================
+        // If BIND logs error messages about the root key being expired,
+        // you will need to update your keys.  See https://www.isc.org/bind-keys
+        //========================================================================
+        dnssec-validation auto;
+        auth-nxdomain no;
+        allow-recursion { any; };
+        listen-on-v6 { any; };
+};
+
 #### Routing (IPTables)
+
+    apt install iptables netfilter-persistent iptables-persistent
+
+Enable NAT
+
+    sudo iptables -t nat -A POSTROUTING -o ens192 -j MASQUERADE
+
+Where **ens192** is the outside interface.
 
 ## DMZ Configuration
 
+### Apache2 - HTTP/HTTPS web server
+
+    apt install apache2
+
+Enable HTTPS
+
+    a2ensite default-ssl.conf 
+
+### Easy-RSA - CA & Certificates creation
+
+    apt install easy-rsa
+    cd /etc
+    cp -R /usr/share/easy-rsa/ .
+    cd easy-rsa/
+    cp vars.example vars
+
 ## Windows configuration
 
-## HTTP/HTTPS web server
-
-## Easy-RSA - CA & Certificates creation
+## DHCP Failover
