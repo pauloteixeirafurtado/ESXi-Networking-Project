@@ -244,6 +244,8 @@ Enable NAT
 
 Where **ens192** is the outside interface.
 
+    netfilter-persistent reload
+
 ## DMZ Configuration
 
 ### Apache2 - HTTP/HTTPS web server
@@ -261,7 +263,92 @@ Enable HTTPS
     cp -R /usr/share/easy-rsa/ .
     cd easy-rsa/
     cp vars.example vars
+    
+    ./easyrsa init-pki
+	./easyrsa build-ca nopass
+	
+	./easyrsa --subject-alt-name="DNS:www.example.org" gen-req www.example.org nopass
+	./easyrsa sign-req server www.example.org
+
+	./easyrsa --subject-alt-name="DNS:smtp.example.org" gen-req smtp.example.org nopass
+	./easyrsa sign-req server smtp.example.org
+
+	./easyrsa --subject-alt-name="DNS:pop.example.org" gen-req pop.example.org nopass
+	./easyrsa sign-req server pop.example.org
+
+## Email server
+
+### Installation
+
+    apt-get install exim4-daemon-heavy sasl2-bin dovecot-pop3d dovecot-imapd
+    cd /etc
+	adduser Debian-exim ssl-cert
+	adduser Debian-exim sasl
+	adduser dovecot ssl-cert
+
+    dpkg-reconfigure exim4-config
+
+### Mail Server configuration
+ - Select *internet site; mail is sent and received directly using SMTP*
+ - Enter mail name (*example.org*)
+ - *IP-addresses to listen for incoming SMTP connections:* Leave it blank
+ - Leave the relay mail blank
+ - Leave the machines relay blank
+ - Select *No*
+ - Select *Maildir format in home directory*
+ - Select *No*
+ 
+ **nano /etc/default/saslauthd**
+    
+		START=yes
+
+**nano /etc/dovecot/conf.d/10-ssl.conf**
+Update **ssl_cert** and **ssl_key**
+After that, change the permissions of the certificate and key.
+Example:
+
+    chmod 440 /etc/ssl/private/*
+	chmod 440 /etc/ssl/certs/*
+	chmod 710 /etc/ssl/private
+	chmod 710 /etc/ssl/certs/
+	chmod 710 /etc/ssl/certs
+
+**nano /etc/exim4/exim4.conf.template**
+
+    MAIN_TLS_ENABLE=yes
+	MAIN_TLS_CERTIFICATE=/etc/ssl/certs/.crt
+	MAIN_TLS_PRIVATEKEY=/etc/ssl/private/.key
+
+Uncomment these:
+
+     plain_saslauthd_server:
+	   driver = plaintext
+	   public_name = PLAIN
+	   server_condition = ${if saslauthd{{$auth2}{$auth3}}{1}{0}}
+	   server_set_id = $auth2
+	   server_prompts = :
+	   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
+	   server_advertise_condition = ${if eq{$tls_in_cipher}{}{}{*}}
+	   .endif
+
+Run this command:
+
+    echo "tls_on_connect_ports = 465" > /etc/exim4/exim4.conf.localmacros
+
+**nano /etc/default/exim4**
+
+    SMTPLISTENEROPTIONS='-oX 25:465:587:10025 -oP /run/exim4/exim.pid'
+
+Start exim
+
+    cd /etc/skel
+    
+	mkdir Maildir && cd Maildir && maildirmake.dovecot .
+	systemctl enable saslauthd exim4 dovecot
+	systemctl restart saslauthd exim4 dovecot
+	systemctl status saslauthd exim4 dove
 
 ## Windows configuration
 
 ## DHCP Failover
+
