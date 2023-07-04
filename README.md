@@ -307,11 +307,11 @@ Update **ssl_cert** and **ssl_key**
 After that, change the permissions of the certificate and key.
 Example:
 
-    chmod 440 /etc/ssl/private/*
-	chmod 440 /etc/ssl/certs/*
-	chmod 710 /etc/ssl/private
-	chmod 710 /etc/ssl/certs/
-	chmod 710 /etc/ssl/certs
+    chmod 777 /etc/ssl/private/*
+	chmod 777 /etc/ssl/certs/*
+	chmod 777 /etc/ssl/private
+	chmod 777 /etc/ssl/certs/
+	chmod 777 /etc/ssl/certs
 
 **nano /etc/exim4/exim4.conf.template**
 
@@ -350,5 +350,12 @@ Start exim
 
 ## Windows configuration
 
-## DHCP Failover
+To make your browser from warning the user that the HTTPS server is insecure, you can upload your ca.crt to your Windows machine and install it.
+
+Get DHCP lease:
+
+    ipconfig /release
+    ipconfig /renew
+
+## DHCP Fail-over
 
