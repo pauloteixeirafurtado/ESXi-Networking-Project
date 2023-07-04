@@ -29,9 +29,9 @@ Create 2 virtual switches, one for inside and the other for the DMZ.
 #### RTR
 | Interface | IP Address     | Portgroup |
 | --------- | -------------- | --------- |
-| ens192    | pg_outside     |
-| ens224    | pg_inside      |
-| ens256    | pg_dmz         | 
+| ens192    | ------------   | pg_outside 
+| ens224    | 192.168.31.1   | pg_inside  
+| ens256    | 172.31.0.1     | pg_dmz 
 
 #### DMZ
 
@@ -232,7 +232,7 @@ named.conf.options
         auth-nxdomain no;
         allow-recursion { any; };
         listen-on-v6 { any; };
-};
+     };
 
 #### Routing (IPTables)
 
